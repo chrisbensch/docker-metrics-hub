@@ -170,7 +170,9 @@ Validate local files:
 ./scripts/check.sh
 ```
 
-If you want Prometheus-native config validation and do not have `promtool` installed locally, run it through Docker:
+`scripts/check.sh` uses local `promtool` when it is installed. If `promtool` is not installed but the Docker daemon is available, it runs Prometheus-native config validation through the Prometheus image.
+
+You can also run that validation directly:
 
 ```bash
 docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" prom/prometheus:latest promtool check config /etc/prometheus/prometheus.yml

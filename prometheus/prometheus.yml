@@ -2,9 +2,8 @@ global:
   scrape_interval: 30s
   evaluation_interval: 30s
   scrape_timeout: 10s
-
-external_labels:
-  monitor: homelab
+  external_labels:
+    monitor: homelab
 
 alerting:
   alertmanagers:

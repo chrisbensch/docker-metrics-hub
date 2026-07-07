@@ -86,6 +86,25 @@ else
   echo "yaml parse: skipped because ruby is not installed"
 fi
 
+if command -v promtool >/dev/null 2>&1; then
+  promtool check config prometheus/prometheus.yml
+  promtool check rules prometheus/alerts/homelab.yml
+  echo "promtool: ok"
+elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  prometheus_image="${PROMETHEUS_IMAGE:-prom/prometheus:latest}"
+  docker run --rm \
+    -v "$ROOT_DIR/prometheus:/etc/prometheus:ro" \
+    "$prometheus_image" \
+    promtool check config /etc/prometheus/prometheus.yml
+  docker run --rm \
+    -v "$ROOT_DIR/prometheus:/etc/prometheus:ro" \
+    "$prometheus_image" \
+    promtool check rules /etc/prometheus/alerts/homelab.yml
+  echo "promtool via docker: ok"
+else
+  echo "promtool: skipped because promtool is not installed and docker daemon is unavailable"
+fi
+
 if [[ ! -f ".env" ]]; then
   echo "note: .env does not exist yet; copy .env.example to .env before first deploy"
 fi
