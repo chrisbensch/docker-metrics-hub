@@ -40,6 +40,20 @@ Copy this directory to the server, then run:
 
 ```bash
 cd docker-metrics-hub
+./scripts/setup.sh
+```
+
+The setup script copies local config templates, generates a Grafana password, creates `appdata` directories, protects local secret files, offers to open Proxmox config files, runs validation, and asks before starting the stack.
+
+For a mostly non-interactive setup that starts the stack after validation:
+
+```bash
+./scripts/setup.sh --yes --start
+```
+
+Manual setup is also fine:
+
+```bash
 cp .env.example .env
 nano .env
 cp proxmox/pve.yml.example proxmox/pve.yml

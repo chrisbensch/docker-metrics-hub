@@ -21,6 +21,9 @@ required_files=(
   "grafana/provisioning/dashboards/dashboards.yml"
   "grafana/dashboards/homelab-overview.json"
   "grafana/dashboards/proxmox-virtualization.json"
+  "scripts/setup.sh"
+  "scripts/reload-prometheus.sh"
+  "scripts/check.sh"
 )
 
 required_dirs=(
@@ -71,6 +74,15 @@ if command -v python3 >/dev/null 2>&1; then
   echo "grafana dashboard json: ok"
 else
   echo "grafana dashboard json: skipped because python3 is not installed"
+fi
+
+if command -v bash >/dev/null 2>&1; then
+  bash -n scripts/check.sh
+  bash -n scripts/reload-prometheus.sh
+  bash -n scripts/setup.sh
+  echo "shell syntax: ok"
+else
+  echo "shell syntax: skipped because bash is not installed"
 fi
 
 if command -v ruby >/dev/null 2>&1; then
