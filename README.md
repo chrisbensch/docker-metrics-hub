@@ -246,6 +246,41 @@ Show running containers:
 docker compose ps
 ```
 
+Back up the full critical recovery set:
+
+```bash
+./scripts/backup.sh
+```
+
+By default, the backup includes local config and secrets, Prometheus rules and targets, Blackbox and Alertmanager config, Proxmox credentials, Grafana provisioning and dashboards, Grafana state, Alertmanager state, and the Prometheus TSDB under `appdata/prometheus`. Archives are written to `backups/`, which is ignored by git. Treat the archive like a secret because it can contain `.env` and `proxmox/pve.yml`.
+
+For the most consistent service-state backup, briefly stop the stack first:
+
+```bash
+docker compose stop
+./scripts/backup.sh
+docker compose up -d
+```
+
+Use narrower backups when you only want one part:
+
+```bash
+./scripts/backup.sh --config-only
+./scripts/backup.sh --grafana-only
+./scripts/backup.sh --prometheus-only
+./scripts/backup.sh --no-prometheus-data
+```
+
+Restore an archive from the project root:
+
+```bash
+docker compose down
+tar -xzf backups/docker-metrics-hub-YYYYmmdd-HHMMSS.tar.gz -C .
+sudo chown -R 65534:65534 appdata/prometheus appdata/alertmanager
+sudo chown -R 472:472 appdata/grafana
+docker compose up -d
+```
+
 Reload Prometheus after changing `prometheus/prometheus.yml`, alert rules, or Blackbox configuration:
 
 ```bash

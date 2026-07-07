@@ -13,3 +13,4 @@ appdata/*
 !appdata/alertmanager/
 !appdata/alertmanager/.gitkeep
 scratch/
+backups/
