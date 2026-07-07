@@ -7,6 +7,7 @@ The central Docker Compose stack runs:
 - Prometheus
 - Grafana OSS
 - Blackbox exporter
+- Proxmox VE exporter
 - Alertmanager
 
 The stack does not scrape the Docker host directly. It does not mount the Docker socket, host root, `/proc`, or `/sys`. Every monitored machine should run its own exporter.
@@ -17,6 +18,8 @@ Persistent service data lives under `./appdata/`:
 - `appdata/grafana`
 - `appdata/alertmanager`
 
+Proxmox API credentials live in `proxmox/pve.yml`, which is ignored by git.
+
 ## Ports
 
 | Component | Default bind | Purpose |
@@ -24,6 +27,7 @@ Persistent service data lives under `./appdata/`:
 | Grafana | `0.0.0.0:3000` | Main dashboard UI |
 | Prometheus | `127.0.0.1:9090` | Metrics database and target status |
 | Blackbox exporter | `127.0.0.1:9115` | HTTP, TCP, and ICMP probe worker |
+| Proxmox VE exporter | `127.0.0.1:9221` | Proxmox API metrics proxy |
 | Alertmanager | `127.0.0.1:9093` | Alert routing |
 | Linux node_exporter | remote host port `9100` | Linux host metrics |
 | Windows windows_exporter | remote host port `9182` | Windows host metrics |
@@ -38,6 +42,9 @@ Copy this directory to the server, then run:
 cd docker-metrics-hub
 cp .env.example .env
 nano .env
+cp proxmox/pve.yml.example proxmox/pve.yml
+nano proxmox/pve.yml
+chmod 600 proxmox/pve.yml
 mkdir -p appdata/prometheus appdata/grafana appdata/alertmanager
 sudo chown -R 65534:65534 appdata/prometheus appdata/alertmanager
 sudo chown -R 472:472 appdata/grafana
@@ -46,6 +53,8 @@ docker compose up -d
 ```
 
 Change `GRAFANA_ADMIN_PASSWORD` in `.env` before exposing Grafana to other users.
+
+If you are not ready to monitor Proxmox yet, leave `prometheus/targets/proxmox-hosts.yml` empty. The placeholder `proxmox/pve.yml` is enough for the exporter container to start, and no Proxmox API calls are made until targets are listed.
 
 Open Grafana:
 
@@ -158,6 +167,39 @@ Edit `prometheus/targets/ping-targets.yml`:
 
 The Blackbox exporter container includes `NET_RAW` capability so ICMP probes can work in Docker.
 
+## Add Proxmox VE Hosts
+
+Docker Metrics Hub includes a Proxmox VE dashboard backed by `prometheus-pve-exporter`.
+
+Start with the detailed runbook:
+
+```text
+exporters/proxmox-pve-exporter.md
+```
+
+Short version:
+
+1. On each Proxmox cluster, create a dedicated API token with read-only `PVEAuditor` access.
+2. Put the token in ignored `proxmox/pve.yml`.
+3. Add one or more Proxmox node API targets to `prometheus/targets/proxmox-hosts.yml`.
+4. Run `./scripts/reload-prometheus.sh` or restart the stack.
+
+Example target file:
+
+```yaml
+- targets:
+    - pve01.example.lan
+    - pve02.example.lan
+  labels:
+    cluster: lab
+    module: default
+    site: home
+    role: virtualization
+    os: proxmox
+```
+
+The provisioned Grafana dashboard is named `Proxmox Virtualization`.
+
 ## Configure Alertmanager
 
 Alertmanager starts with the normal `docker compose up -d` command. The included `alertmanager/alertmanager.yml` has a local drop receiver. Replace it with email, Slack, Discord, Gotify, ntfy, or another receiver when you are ready for notifications.
@@ -217,6 +259,8 @@ Stop the stack, then remove or archive the relevant subdirectories under `appdat
 
 - Keep exporter ports reachable only from the Prometheus server IP or a private VPN/VLAN.
 - Do not expose Prometheus, Alertmanager, or Blackbox exporter directly to the internet.
+- Do not expose the Proxmox VE exporter directly to the internet.
+- Do not commit `proxmox/pve.yml`; it contains API token secrets.
 - Change the Grafana admin password in `.env`.
 - Put Grafana behind a reverse proxy or VPN before exposing it outside your LAN.
 - Pin image tags in `.env` once the first deployment is stable.
@@ -227,3 +271,4 @@ Stop the stack, then remove or archive the relevant subdirectories under `appdat
 - Prometheus node_exporter: https://github.com/prometheus/node_exporter
 - Prometheus windows_exporter: https://github.com/prometheus-community/windows_exporter
 - Prometheus blackbox_exporter: https://github.com/prometheus/blackbox_exporter
+- Prometheus Proxmox VE exporter: https://github.com/prometheus-pve/prometheus-pve-exporter

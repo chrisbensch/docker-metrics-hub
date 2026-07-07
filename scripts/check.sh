@@ -10,14 +10,17 @@ required_files=(
   "prometheus/prometheus.yml"
   "prometheus/targets/linux-hosts.yml"
   "prometheus/targets/windows-hosts.yml"
+  "prometheus/targets/proxmox-hosts.yml"
   "prometheus/targets/http-services.yml"
   "prometheus/targets/ping-targets.yml"
   "prometheus/alerts/homelab.yml"
   "blackbox/blackbox.yml"
   "alertmanager/alertmanager.yml"
+  "proxmox/pve.yml.example"
   "grafana/provisioning/datasources/prometheus.yml"
   "grafana/provisioning/dashboards/dashboards.yml"
   "grafana/dashboards/homelab-overview.json"
+  "grafana/dashboards/proxmox-virtualization.json"
 )
 
 required_dirs=(
@@ -64,6 +67,7 @@ fi
 
 if command -v python3 >/dev/null 2>&1; then
   python3 -m json.tool grafana/dashboards/homelab-overview.json >/dev/null
+  python3 -m json.tool grafana/dashboards/proxmox-virtualization.json >/dev/null
   echo "grafana dashboard json: ok"
 else
   echo "grafana dashboard json: skipped because python3 is not installed"
@@ -74,13 +78,21 @@ if command -v ruby >/dev/null 2>&1; then
     prometheus/prometheus.yml \
     prometheus/targets/linux-hosts.yml \
     prometheus/targets/windows-hosts.yml \
+    prometheus/targets/proxmox-hosts.yml \
     prometheus/targets/http-services.yml \
     prometheus/targets/ping-targets.yml \
     prometheus/alerts/homelab.yml \
     blackbox/blackbox.yml \
     alertmanager/alertmanager.yml \
+    proxmox/pve.yml.example \
     grafana/provisioning/datasources/prometheus.yml \
     grafana/provisioning/dashboards/dashboards.yml
+  if [[ -f "proxmox/pve.yml" ]]; then
+    ruby -e 'require "yaml"; YAML.load_file(ARGV.fetch(0))' proxmox/pve.yml
+    echo "proxmox credential yaml: ok"
+  else
+    echo "proxmox credential yaml: skipped because proxmox/pve.yml does not exist yet"
+  fi
   echo "yaml parse: ok"
 else
   echo "yaml parse: skipped because ruby is not installed"

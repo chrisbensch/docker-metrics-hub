@@ -1,0 +1,20 @@
+# Copy this file to proxmox/pve.yml and replace the token values.
+# proxmox/pve.yml is ignored by git because it contains API credentials.
+#
+# Use one module per Proxmox cluster or credential set. Targets in
+# prometheus/targets/proxmox-hosts.yml can select a module with the "module"
+# label. Targets without a module label use "default".
+
+default:
+  user: prometheus@pve
+  token_name: docker-metrics-hub
+  token_value: replace-with-proxmox-api-token-secret
+  verify_ssl: true
+
+# Example for a second independent cluster with different credentials:
+#
+# lab2:
+#   user: prometheus@pve
+#   token_name: docker-metrics-hub
+#   token_value: replace-with-second-cluster-token-secret
+#   verify_ssl: true

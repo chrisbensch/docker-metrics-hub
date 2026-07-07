@@ -54,6 +54,21 @@ services:
     networks:
       - monitoring
 
+  pve-exporter:
+    image: ${PVE_EXPORTER_IMAGE:-prompve/prometheus-pve-exporter:latest}
+    container_name: docker-metrics-hub-pve-exporter
+    command:
+      - --config.file=/etc/prometheus/pve.yml
+      - --web.listen-address=0.0.0.0:9221
+      - --no-collector.config
+    volumes:
+      - ./proxmox:/etc/prometheus:ro
+    ports:
+      - "${PVE_EXPORTER_BIND_ADDR:-127.0.0.1}:${PVE_EXPORTER_PORT:-9221}:9221"
+    restart: unless-stopped
+    networks:
+      - monitoring
+
   alertmanager:
     image: ${ALERTMANAGER_IMAGE:-prom/alertmanager:latest}
     container_name: docker-metrics-hub-alertmanager

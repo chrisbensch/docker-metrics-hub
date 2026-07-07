@@ -31,6 +31,41 @@ scrape_configs:
           role: monitoring
           os: linux
 
+  - job_name: pve-exporter
+    static_configs:
+      - targets:
+          - pve-exporter:9221
+        labels:
+          role: monitoring
+          os: linux
+
+  - job_name: proxmox-pve
+    metrics_path: /pve
+    params:
+      module:
+        - default
+      cluster:
+        - "1"
+      node:
+        - "1"
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/proxmox-hosts.yml
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels:
+          - module
+        regex: (.+)
+        target_label: __param_module
+      - source_labels:
+          - __address__
+        target_label: __param_target
+      - source_labels:
+          - __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: pve-exporter:9221
+
   - job_name: linux-node-exporter
     file_sd_configs:
       - files:

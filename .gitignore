@@ -1,4 +1,6 @@
 .env
+proxmox/pve.yml
+proxmox/*.secret.yml
 *.bak
 *.tmp
 .DS_Store
