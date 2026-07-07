@@ -1,0 +1,11 @@
+# Windows windows_exporter targets.
+#
+# Example:
+# - targets:
+#     - 192.168.1.20:9182
+#   labels:
+#     hostname: windows-workstation-01
+#     role: workstation
+#     site: home
+#     os: windows
+[]

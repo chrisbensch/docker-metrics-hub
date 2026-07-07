@@ -1,0 +1,13 @@
+.env
+*.bak
+*.tmp
+.DS_Store
+appdata/*
+!appdata/.gitkeep
+!appdata/prometheus/
+!appdata/prometheus/.gitkeep
+!appdata/grafana/
+!appdata/grafana/.gitkeep
+!appdata/alertmanager/
+!appdata/alertmanager/.gitkeep
+scratch/

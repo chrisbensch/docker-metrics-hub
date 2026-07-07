@@ -1,0 +1,10 @@
+# HTTP or HTTPS URLs probed through Blackbox exporter.
+#
+# Example:
+# - targets:
+#     - https://grafana.example.lan/
+#     - http://192.168.1.1/
+#   labels:
+#     probe: http
+#     site: home
+[]

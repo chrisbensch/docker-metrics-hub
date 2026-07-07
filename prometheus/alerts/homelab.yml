@@ -1,0 +1,56 @@
+groups:
+  - name: homelab-starter
+    rules:
+      - alert: ExporterDown
+        expr: up{job=~"linux-node-exporter|windows-exporter"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Exporter is down on {{ $labels.instance }}"
+          description: "Prometheus has not been able to scrape {{ $labels.job }} at {{ $labels.instance }} for 5 minutes."
+
+      - alert: BlackboxProbeFailed
+        expr: probe_success{job=~"blackbox-http|blackbox-icmp"} == 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Probe failed for {{ $labels.instance }}"
+          description: "The {{ $labels.job }} probe for {{ $labels.instance }} has failed for 3 minutes."
+
+      - alert: LinuxFilesystemUsageHigh
+        expr: 100 * (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Linux filesystem usage high on {{ $labels.instance }}"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has been above 85% used for 10 minutes."
+
+      - alert: LinuxMemoryUsageHigh
+        expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Linux memory usage high on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} has been above 90% memory usage for 10 minutes."
+
+      - alert: WindowsLogicalDiskUsageHigh
+        expr: 100 * (1 - (windows_logical_disk_free_bytes{volume!=""} / windows_logical_disk_size_bytes{volume!=""})) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Windows disk usage high on {{ $labels.instance }}"
+          description: "Volume {{ $labels.volume }} on {{ $labels.instance }} has been above 85% used for 10 minutes."
+
+      - alert: WindowsMemoryUsageHigh
+        expr: 100 * (1 - (windows_os_physical_memory_free_bytes / windows_cs_physical_memory_bytes)) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Windows memory usage high on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} has been above 90% memory usage for 10 minutes."

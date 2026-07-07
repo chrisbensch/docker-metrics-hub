@@ -1,0 +1,10 @@
+# Hosts or IPs probed with ICMP through Blackbox exporter.
+#
+# Example:
+# - targets:
+#     - 192.168.1.1
+#     - nas.example.lan
+#   labels:
+#     probe: icmp
+#     site: home
+[]

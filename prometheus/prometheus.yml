@@ -1,0 +1,83 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  scrape_timeout: 10s
+
+external_labels:
+  monitor: homelab
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+        labels:
+          role: monitoring
+          os: linux
+
+  - job_name: blackbox-exporter
+    static_configs:
+      - targets:
+          - blackbox-exporter:9115
+        labels:
+          role: monitoring
+          os: linux
+
+  - job_name: linux-node-exporter
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/linux-hosts.yml
+        refresh_interval: 30s
+
+  - job_name: windows-exporter
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/windows-hosts.yml
+        refresh_interval: 30s
+
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module:
+        - http_2xx
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/http-services.yml
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels:
+          - __address__
+        target_label: __param_target
+      - source_labels:
+          - __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: blackbox-icmp
+    metrics_path: /probe
+    params:
+      module:
+        - icmp
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/ping-targets.yml
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels:
+          - __address__
+        target_label: __param_target
+      - source_labels:
+          - __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
