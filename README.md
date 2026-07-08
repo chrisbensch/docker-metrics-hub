@@ -45,11 +45,27 @@ cd docker-metrics-hub
 
 The setup script copies local config templates, generates a Grafana password, creates `appdata` directories, protects local secret files, offers to open Proxmox config files, runs validation, and asks before starting the stack.
 
+In an interactive terminal, setup also asks how many initial targets you want to add for Linux hosts, Windows hosts, Proxmox VE hosts, HTTP checks, and ping checks. Re-running setup preserves existing target files and appends new entries by default.
+
 For a mostly non-interactive setup that starts the stack after validation:
 
 ```bash
 ./scripts/setup.sh --yes --start
 ```
+
+Non-interactive setup skips target prompts so automation does not hang. To prepare config and appdata without the target wizard, run:
+
+```bash
+./scripts/setup.sh --skip-targets
+```
+
+To intentionally rebuild target files from scratch, run setup interactively with:
+
+```bash
+./scripts/setup.sh --reset-targets
+```
+
+`--reset-targets` restores the target files to their stock comments plus `[]` before adding targets from that run. It cannot be combined with `--yes`.
 
 Manual setup is also fine:
 
