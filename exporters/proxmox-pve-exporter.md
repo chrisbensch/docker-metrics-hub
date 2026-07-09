@@ -33,9 +33,14 @@ On the Docker Metrics Hub server:
 
 ```bash
 cp proxmox/pve.yml.example proxmox/pve.yml
-chmod 600 proxmox/pve.yml
+chmod 644 proxmox/pve.yml
 nano proxmox/pve.yml
 ```
+
+The exporter runs as a non-root user inside the container, so `proxmox/pve.yml`
+must be readable through the bind mount. If your Docker host has untrusted local
+shell users, use a tighter host ACL that grants read access to the exporter user
+instead of world-readable mode.
 
 For one cluster, use the `default` module:
 
@@ -110,6 +115,15 @@ Check the exporter container is running:
 
 ```bash
 docker compose ps pve-exporter
+```
+
+If it keeps restarting with `PermissionError: [Errno 13] Permission denied:
+'/etc/prometheus/pve.yml'`, fix the host-side file mode and recreate the
+container:
+
+```bash
+chmod 644 proxmox/pve.yml
+docker compose up -d --force-recreate pve-exporter
 ```
 
 Test the exporter from the Docker host:

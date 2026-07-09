@@ -43,7 +43,7 @@ cd docker-metrics-hub
 ./scripts/setup.sh
 ```
 
-The setup script copies local config templates, generates a Grafana password, creates `appdata` directories, protects local secret files, offers to open Proxmox config files, runs validation, and asks before starting the stack.
+The setup script copies local config templates, generates a Grafana password, creates `appdata` directories, sets local config permissions, offers to open Proxmox config files, runs validation, and asks before starting the stack.
 
 In an interactive terminal, setup also asks how many initial targets you want to add for Linux hosts, Windows hosts, Proxmox VE hosts, HTTP checks, and ping checks. Re-running setup preserves existing target files and appends new entries by default.
 
@@ -74,7 +74,7 @@ cp .env.example .env
 nano .env
 cp proxmox/pve.yml.example proxmox/pve.yml
 nano proxmox/pve.yml
-chmod 600 proxmox/pve.yml
+chmod 644 proxmox/pve.yml
 mkdir -p appdata/prometheus appdata/grafana appdata/alertmanager
 sudo chown -R 65534:65534 appdata/prometheus appdata/alertmanager
 sudo chown -R 472:472 appdata/grafana
@@ -326,6 +326,7 @@ Stop the stack, then remove or archive the relevant subdirectories under `appdat
 - Do not expose Prometheus, Alertmanager, or Blackbox exporter directly to the internet.
 - Do not expose the Proxmox VE exporter directly to the internet.
 - Do not commit `proxmox/pve.yml`; it contains API token secrets.
+- `proxmox/pve.yml` must be readable by the `pve-exporter` container. The setup script uses `chmod 644`; use a tighter host ACL if your Docker host has untrusted local shell users.
 - Change the Grafana admin password in `.env`.
 - Put Grafana behind a reverse proxy or VPN before exposing it outside your LAN.
 - Pin image tags in `.env` once the first deployment is stable.

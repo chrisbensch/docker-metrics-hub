@@ -227,8 +227,10 @@ create_local_files() {
   copy_if_missing ".env.example" ".env"
   copy_if_missing "proxmox/pve.yml.example" "proxmox/pve.yml"
 
-  chmod 600 ".env" "proxmox/pve.yml"
-  log "Protected .env and proxmox/pve.yml with chmod 600"
+  chmod 600 ".env"
+  chmod 644 "proxmox/pve.yml"
+  log "Protected .env with chmod 600"
+  log "Set proxmox/pve.yml to chmod 644 so the pve-exporter container can read it"
 }
 
 configure_grafana_password() {
