@@ -4,7 +4,8 @@ proxmox/*.secret.yml
 *.bak
 *.tmp
 .DS_Store
-appdata/*
+appdata/**
+!appdata/
 !appdata/.gitkeep
 !appdata/prometheus/
 !appdata/prometheus/.gitkeep

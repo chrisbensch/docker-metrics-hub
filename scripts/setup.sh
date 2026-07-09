@@ -291,9 +291,10 @@ EOF
       cat > "$path" <<'EOF'
 # Proxmox VE API targets scraped through prometheus-pve-exporter.
 #
-# Use one target per Proxmox node you want node-level metrics from.
-# For a cluster, list every node when node=1 is enabled. Cluster-wide metrics
-# may be duplicated across nodes; the dashboard groups by target and node.
+# Use one target per Proxmox cluster/API endpoint. A clustered Proxmox API node
+# can return cluster, node, VM, LXC, and storage metrics for the whole cluster.
+# Listing multiple nodes from the same cluster can duplicate dashboard counts
+# because the same pve_* resources are scraped once per API target.
 #
 # Targets normally omit the Proxmox API port because the exporter uses the
 # Proxmox API default. Use DNS names or management IPs reachable from the
@@ -301,9 +302,7 @@ EOF
 #
 # Example, single cluster using the "default" module:
 # - targets:
-#     - pve01.example.lan
-#     - pve02.example.lan
-#     - pve03.example.lan
+#     - pve-api.example.lan
 #   labels:
 #     cluster: lab
 #     module: default
@@ -406,6 +405,8 @@ record_changed_target_file() {
   local file="$1"
   local existing
 
+  chmod 644 "$file"
+
   for existing in "${CHANGED_TARGET_FILES[@]}"; do
     if [[ "$existing" == "$file" ]]; then
       return
@@ -490,12 +491,12 @@ configure_windows_targets() {
 configure_proxmox_targets() {
   local count i address cluster module site
 
-  count="$(prompt_count "How many Proxmox VE hosts do you want to add?")"
+  count="$(prompt_count "How many Proxmox VE clusters/API endpoints do you want to add?")"
   for ((i = 1; i <= count; i++)); do
-    address="$(prompt_required "Proxmox host ${i} address or hostname:")"
-    cluster="$(prompt_default "Proxmox host ${i} cluster label" "lab")"
-    module="$(prompt_default "Proxmox host ${i} pve.yml module label" "default")"
-    site="$(prompt_default "Proxmox host ${i} site label" "home")"
+    address="$(prompt_required "Proxmox API endpoint ${i} address or hostname:")"
+    cluster="$(prompt_default "Proxmox API endpoint ${i} cluster label" "lab")"
+    module="$(prompt_default "Proxmox API endpoint ${i} pve.yml module label" "default")"
+    site="$(prompt_default "Proxmox API endpoint ${i} site label" "home")"
 
     append_target_entry \
       "prometheus/targets/proxmox-hosts.yml" \

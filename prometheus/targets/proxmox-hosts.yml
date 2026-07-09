@@ -1,8 +1,9 @@
 # Proxmox VE API targets scraped through prometheus-pve-exporter.
 #
-# Use one target per Proxmox node you want node-level metrics from.
-# For a cluster, list every node when node=1 is enabled. Cluster-wide metrics
-# may be duplicated across nodes; the dashboard groups by target and node.
+# Use one target per Proxmox cluster/API endpoint. A clustered Proxmox API node
+# can return cluster, node, VM, LXC, and storage metrics for the whole cluster.
+# Listing multiple nodes from the same cluster can duplicate dashboard counts
+# because the same pve_* resources are scraped once per API target.
 #
 # Targets normally omit the Proxmox API port because the exporter uses the
 # Proxmox API default. Use DNS names or management IPs reachable from the
@@ -10,9 +11,7 @@
 #
 # Example, single cluster using the "default" module:
 # - targets:
-#     - pve01.example.lan
-#     - pve02.example.lan
-#     - pve03.example.lan
+#     - pve-api.example.lan
 #   labels:
 #     cluster: lab
 #     module: default
@@ -30,4 +29,12 @@
 #     site: garage
 #     role: virtualization
 #     os: proxmox
-[]
+
+- targets:
+    - "10.10.10.28"
+  labels:
+    cluster: "BlackLotus"
+    module: "default"
+    site: "home"
+    role: "virtualization"
+    os: "proxmox"

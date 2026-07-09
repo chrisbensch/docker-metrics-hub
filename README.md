@@ -45,7 +45,13 @@ cd docker-metrics-hub
 
 The setup script copies local config templates, generates a Grafana password, creates `appdata` directories, sets local config permissions, offers to open Proxmox config files, runs validation, and asks before starting the stack.
 
-In an interactive terminal, setup also asks how many initial targets you want to add for Linux hosts, Windows hosts, Proxmox VE hosts, HTTP checks, and ping checks. Re-running setup preserves existing target files and appends new entries by default.
+In an interactive terminal, setup also asks how many initial targets you want to add for Linux hosts, Windows hosts, Proxmox VE clusters/API endpoints, HTTP checks, and ping checks. Re-running setup preserves existing target files and appends new entries by default.
+
+Prometheus target files are not secrets. They must remain readable by the Prometheus container, which runs as UID `65534` in the upstream image. The setup wizard sets changed target files to `0644`; if you edit them manually and use a restrictive umask, run:
+
+```bash
+chmod 644 prometheus/targets/*.yml
+```
 
 For a mostly non-interactive setup that starts the stack after validation:
 
@@ -75,6 +81,7 @@ nano .env
 cp proxmox/pve.yml.example proxmox/pve.yml
 nano proxmox/pve.yml
 chmod 644 proxmox/pve.yml
+chmod 644 prometheus/targets/*.yml
 mkdir -p appdata/prometheus appdata/grafana appdata/alertmanager
 sudo chown -R 65534:65534 appdata/prometheus appdata/alertmanager
 sudo chown -R 472:472 appdata/grafana
@@ -138,6 +145,8 @@ Prometheus re-reads target files every 30 seconds. You can also reload immediate
 ```bash
 ./scripts/reload-prometheus.sh
 ```
+
+For Proxmox hosts, `node_exporter` is still the source for Linux host CPU, memory, filesystem, and OS metrics. Add Proxmox server `:9100` endpoints here when you want them on the `Homelab Overview` dashboard, even if the same servers are also listed as Proxmox API targets.
 
 ## Add A Windows Host
 
@@ -209,17 +218,17 @@ exporters/proxmox-pve-exporter.md
 
 Short version:
 
-1. On each Proxmox cluster, create a dedicated API token with read-only `PVEAuditor` access.
+1. On each Proxmox cluster, create a dedicated API token with read-only `PVEAuditor` access at `/`.
 2. Put the token in ignored `proxmox/pve.yml`.
-3. Add one or more Proxmox node API targets to `prometheus/targets/proxmox-hosts.yml`.
-4. Run `./scripts/reload-prometheus.sh` or restart the stack.
+3. Add one Proxmox API target per cluster to `prometheus/targets/proxmox-hosts.yml`.
+4. If you also run `node_exporter` on the Proxmox nodes, add those `:9100` targets to `prometheus/targets/linux-hosts.yml`.
+5. Run `./scripts/reload-prometheus.sh` or restart the stack.
 
 Example target file:
 
 ```yaml
 - targets:
-    - pve01.example.lan
-    - pve02.example.lan
+    - pve-api.example.lan
   labels:
     cluster: lab
     module: default
@@ -228,7 +237,21 @@ Example target file:
     os: proxmox
 ```
 
+For a Proxmox cluster, one reachable cluster node is normally enough for the API target. With `cluster=1&node=1`, the exporter can return cluster, node, guest, and storage metrics through a single API endpoint. Listing multiple nodes from the same cluster usually duplicates `pve_*` series and can double-count dashboard totals. Keep every Proxmox node in `prometheus/targets/linux-hosts.yml` if you want per-node OS metrics from `node_exporter`.
+
 The provisioned Grafana dashboard is named `Proxmox Virtualization`.
+
+If the Proxmox API scrape is down with `403 Forbidden: Permission check failed (/, Sys.Audit)`, the token is valid but lacks the needed ACL. On a Proxmox node, grant the token `PVEAuditor` at `/`. Quote or escape `!` in Bash:
+
+```bash
+pveum aclmod / -token 'prometheus@pve!docker-metrics-hub' -role PVEAuditor
+```
+
+For a token owned by `root@pam`, use:
+
+```bash
+pveum aclmod / -token 'root@pam!docker-metrics-hub' -role PVEAuditor
+```
 
 ## Configure Alertmanager
 
@@ -248,6 +271,20 @@ You can also run that validation directly:
 
 ```bash
 docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" prom/prometheus:latest promtool check config /etc/prometheus/prometheus.yml
+```
+
+Check live scrape health from inside the Prometheus container:
+
+```bash
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'
+```
+
+Useful focused checks:
+
+```bash
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=count(node_uname_info%7Bjob%3D%22linux-node-exporter%22%7D)'
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=sum(up%7Bjob%3D%22proxmox-pve%22%7D)'
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=count(pve_up%7Bjob%3D%22proxmox-pve%22%7D)'
 ```
 
 Start or update the stack:
@@ -320,6 +357,36 @@ Delete persistent metrics and dashboards:
 
 Stop the stack, then remove or archive the relevant subdirectories under `appdata/`. With bind mounts, `docker compose down -v` does not remove this data.
 
+## Troubleshooting Blank Dashboards
+
+Blank Grafana panels usually mean Prometheus is not receiving the metric family the dashboard queries. Check Prometheus first, then Grafana.
+
+1. Confirm Prometheus is discovering targets:
+
+```bash
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'
+```
+
+2. If Linux hosts are missing, verify target file permissions and entries:
+
+```bash
+ls -l prometheus/targets/*.yml
+chmod 644 prometheus/targets/*.yml
+docker compose logs --tail=100 prometheus
+```
+
+Prometheus log lines such as `Error reading file ... permission denied` mean the container cannot read the target YAML. The target files should normally be `0644`.
+
+3. If Proxmox targets show `up=0`, inspect the exporter logs:
+
+```bash
+docker compose logs --tail=100 pve-exporter
+```
+
+`403 Forbidden: Permission check failed (/, Sys.Audit)` means the API token needs `PVEAuditor` at `/`.
+
+4. Refresh Grafana with a recent time range such as `Last 15 minutes` after the Prometheus checks show data.
+
 ## Security Notes
 
 - Keep exporter ports reachable only from the Prometheus server IP or a private VPN/VLAN.
@@ -327,6 +394,7 @@ Stop the stack, then remove or archive the relevant subdirectories under `appdat
 - Do not expose the Proxmox VE exporter directly to the internet.
 - Do not commit `proxmox/pve.yml`; it contains API token secrets.
 - `proxmox/pve.yml` must be readable by the `pve-exporter` container. The setup script uses `chmod 644`; use a tighter host ACL if your Docker host has untrusted local shell users.
+- Prometheus target files under `prometheus/targets/` must be readable by the Prometheus container. They contain hostnames, labels, and ports, not secrets.
 - Change the Grafana admin password in `.env`.
 - Put Grafana behind a reverse proxy or VPN before exposing it outside your LAN.
 - Pin image tags in `.env` once the first deployment is stable.

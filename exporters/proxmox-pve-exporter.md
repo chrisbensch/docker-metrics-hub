@@ -10,7 +10,7 @@ The exporter runs centrally in the Compose stack. Prometheus sends it a Proxmox 
 | --- | --- |
 | `proxmox/pve.yml.example` | Safe example credential modules |
 | `proxmox/pve.yml` | Real credential modules, ignored by git |
-| `prometheus/targets/proxmox-hosts.yml` | Proxmox hosts to scrape |
+| `prometheus/targets/proxmox-hosts.yml` | Proxmox cluster API endpoints to scrape |
 | `grafana/dashboards/proxmox-virtualization.json` | Provisioned Grafana dashboard |
 
 ## Create A Proxmox API Token
@@ -20,12 +20,26 @@ Run these commands on a Proxmox VE node as a user with permission to manage user
 ```bash
 pveum user add prometheus@pve --comment "Prometheus metrics reader"
 pveum user token add prometheus@pve docker-metrics-hub --privsep 1
-pveum aclmod / -token prometheus@pve!docker-metrics-hub -role PVEAuditor
+pveum aclmod / -token 'prometheus@pve!docker-metrics-hub' -role PVEAuditor
 ```
 
 Save the token value printed by `pveum user token add`. Proxmox only shows the secret once.
 
 Use one token per independent Proxmox cluster or security boundary. A single token can normally read all nodes in the cluster when its ACL is assigned at `/`.
+
+The quotes around the token ID are intentional. In interactive Bash, an unquoted `!` can trigger history expansion and fail with `event not found`.
+
+If you choose to use a token owned by another user, grant the ACL to that exact token ID. For example:
+
+```bash
+pveum aclmod / -token 'root@pam!docker-metrics-hub' -role PVEAuditor
+```
+
+You can confirm the ACL with:
+
+```bash
+pveum acl list /
+```
 
 ## Configure Exporter Credentials
 
@@ -76,9 +90,7 @@ Edit `prometheus/targets/proxmox-hosts.yml`:
 
 ```yaml
 - targets:
-    - pve01.example.lan
-    - pve02.example.lan
-    - pve03.example.lan
+    - pve-api.example.lan
   labels:
     cluster: lab
     module: default
@@ -92,7 +104,6 @@ For a second credential module:
 ```yaml
 - targets:
     - 10.20.0.11
-    - 10.20.0.12
   labels:
     cluster: lab2
     module: lab2
@@ -108,6 +119,16 @@ http://pve-exporter:9221/pve?target=<target>&module=<module>&cluster=1&node=1
 ```
 
 The dashboard expects `cluster=1` and `node=1`, which collect cluster, node, VM, LXC, and storage metrics.
+
+For a clustered Proxmox deployment, one reachable API endpoint per cluster is normally enough. The Proxmox API can return cluster, node, VM, LXC, and storage resources through a single cluster member. Listing multiple nodes from the same cluster usually duplicates `pve_*` metrics under different `instance` labels and can double-count dashboard totals.
+
+These targets are Proxmox API targets for the `Proxmox Virtualization` dashboard. They do not replace Linux `node_exporter` targets. If you also want Proxmox host CPU, memory, filesystem, and OS metrics on the `Homelab Overview` dashboard, install `node_exporter` on each Proxmox node and add every node's `host:9100` endpoint to `prometheus/targets/linux-hosts.yml`.
+
+Prometheus target files are not secret-bearing files, and the Prometheus container must be able to read them through the bind mount. If target discovery fails with `permission denied`, fix the modes on the monitoring server:
+
+```bash
+chmod 644 prometheus/targets/*.yml
+```
 
 ## Validate
 
@@ -132,6 +153,13 @@ Test the exporter from the Docker host:
 curl -fsS "http://127.0.0.1:9221/pve?target=pve01.example.lan&module=default&cluster=1&node=1" | head
 ```
 
+Check whether Prometheus sees successful Proxmox API scrapes:
+
+```bash
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22proxmox-pve%22%7D'
+docker compose exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=count(pve_up%7Bjob%3D%22proxmox-pve%22%7D)'
+```
+
 Reload Prometheus after editing target files:
 
 ```bash
@@ -148,6 +176,22 @@ If Prometheus is still bound to localhost on the Docker host, use an SSH tunnel 
 
 ```bash
 ssh -L 9090:127.0.0.1:9090 <user>@<monitoring-server-ip>
+```
+
+## Troubleshooting
+
+If Prometheus shows Proxmox targets with `up=0`, inspect the scrape error in Prometheus targets or in the exporter logs:
+
+```bash
+docker compose logs --tail=100 pve-exporter
+```
+
+`403 Forbidden: Permission check failed (/, Sys.Audit)` means the API token exists and is being used, but it lacks `PVEAuditor` on `/`. Re-run `pveum aclmod` for the exact token ID in `proxmox/pve.yml`.
+
+If Prometheus logs `Error reading file ... /etc/prometheus/targets/proxmox-hosts.yml ... permission denied`, the host-side target file mode is too restrictive. Run:
+
+```bash
+chmod 644 prometheus/targets/proxmox-hosts.yml
 ```
 
 ## Dashboard

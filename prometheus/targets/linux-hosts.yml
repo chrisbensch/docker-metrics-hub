@@ -8,4 +8,27 @@
 #     role: server
 #     site: home
 #     os: linux
-[]
+
+- targets:
+    - "10.10.10.41:9100"
+  labels:
+    hostname: "bl-dock-01"
+    role: "server"
+    site: "home"
+    os: "linux"
+
+- targets:
+    - "10.10.10.28:9100"
+  labels:
+    hostname: "proxmox-10-10-10-28"
+    role: "virtualization"
+    site: "home"
+    os: "proxmox"
+
+- targets:
+    - "10.10.10.29:9100"
+  labels:
+    hostname: "proxmox-10-10-10-29"
+    role: "virtualization"
+    site: "home"
+    os: "proxmox"

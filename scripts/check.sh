@@ -33,6 +33,33 @@ required_dirs=(
   "appdata/alertmanager"
 )
 
+target_files=(
+  "prometheus/targets/linux-hosts.yml"
+  "prometheus/targets/windows-hosts.yml"
+  "prometheus/targets/proxmox-hosts.yml"
+  "prometheus/targets/http-services.yml"
+  "prometheus/targets/ping-targets.yml"
+)
+
+check_world_readable() {
+  local file="$1"
+  local mode other_digit
+
+  if ! command -v stat >/dev/null 2>&1; then
+    echo "target file permissions: skipped because stat is not installed"
+    return
+  fi
+
+  mode="$(stat -c '%a' "$file")"
+  other_digit="${mode: -1}"
+
+  if (( (10#$other_digit & 4) == 0 )); then
+    echo "$file is not world-readable; Prometheus runs as uid 65534 and must be able to read file_sd targets" >&2
+    echo "fix with: chmod 644 $file" >&2
+    exit 1
+  fi
+}
+
 for file in "${required_files[@]}"; do
   if [[ ! -f "$file" ]]; then
     echo "missing required file: $file" >&2
@@ -46,6 +73,11 @@ for dir in "${required_dirs[@]}"; do
     exit 1
   fi
 done
+
+for file in "${target_files[@]}"; do
+  check_world_readable "$file"
+done
+echo "target file permissions: ok"
 
 if grep -Eq 'docker\.sock|/proc|/sys|/:/host|:/host' docker-compose.yml; then
   echo "docker-compose.yml appears to mount local host internals; this starter should stay portable" >&2
